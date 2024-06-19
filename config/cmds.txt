@@ -1,0 +1,15 @@
+sf org login web -a DevHub -d  -r https://nbc19.my.salesforce.com -s
+
+sf package create --name "Ticketing IRDT" --package-type Unlocked --path packaged --no-namespace --target-dev-hub DevHubNBS --org-dependent
+sf package create --name "Ticketing IRDT - Entitlment Process (One Shot)" --package-type Unlocked --path EntitlementProcess --no-namespace --target-dev-hub DevHubNBS --org-dependent
+
+sf package list --target-dev-hub DevHubNBS --verbose
+
+sf package delete --package "Ticketing Sante"
+
+sf package version create --package 0Ho4J000000XZvLSAW -x -w 15 --target-dev-hub DevHubNBS
+
+sfdx force:source:retrieve -m "customfield:Case."
+
+sfdx auth:sfdxurl:store -f authFile.json -s -a DevHubNBS
+
