@@ -1,0 +1,345 @@
+<aura:component controller="AddInvoicesController">
+    
+    <!-- START style -->
+    <aura:html tag="style">
+        .forceDockingPanel.DOCKED .mContainer{
+        	display : flex;
+        	flex-direction : column-reverse;
+        }
+        
+        .forceDockingPanel.DOCKED .slds-docked-composer__body{
+        	flex: auto !important;
+        	overflow: scroll;
+        }
+        
+        .forceDockingPanel.DOCKED .mRow{
+        	width : 100% !important;
+        }
+        
+    </aura:html>
+    <!-- END style -->
+    
+    <!--START attributes-->
+    <aura:attribute name="spinner" type="String" default="slds-hide"/>
+    
+    <aura:attribute name="currentInvoiceStep" type="Integer"/>
+    <aura:attribute name="totalInvoices" type="Integer"/>
+    
+    <aura:attribute name="pdfHeightInRem" type="Integer" default="42"/>
+    
+    <aura:attribute name="pdfId" type="String"/>
+    <aura:attribute name="invoice" type="Object"/>
+    <aura:attribute name="lastAction" type="String"/>
+    
+    <aura:attribute name="userCountry" type="String"/>
+    
+    
+    <aura:attribute name="selectedFournisseur" type="Object" default="{}"/>
+    <aura:attribute name="selectedContract" type="Object" default="{}"/>
+    <aura:attribute name="selectedOrderForm" type="Object" default="{}"/>
+    <aura:attribute name="selectedInvoice" type="Object" default="{}"/>
+    <aura:attribute name="selectedInvoiceContact" type="Object" default="{}"/>
+    <aura:attribute name="selectedOrderFormDisposition" type="Object" default="{}"/>
+    <aura:attribute name="selectedEntity" type="Object" default="{}"/>
+    
+    <aura:attribute name="numeroFacture" type="String"/>
+    <aura:attribute name="transactionNumber" type="String"/>
+    <aura:attribute name="dateFacture" type="Date"/>
+    
+    <aura:attribute name="showSelectedFournisseur" type="Boolean" default="false"/>
+    <aura:attribute name="showSelectedContract" type="Boolean" default="false"/>
+    <aura:attribute name="showSelectedOrderForm" type="Boolean" default="false"/>
+    <aura:attribute name="showSelectedInvoice" type="Boolean" default="false"/>
+    
+    <aura:attribute name="showConfirmationDateVerif" type="Boolean" default="false"/>
+    <aura:attribute name="showConfirmationNoPO" type="Boolean" default="false"/>
+    <aura:attribute name="showRejectConfirmation" type="Boolean" default="false"/>
+    
+    <aura:attribute name="contactFactureRequired" type="Boolean" default="true"/>
+
+    
+    <!--aura:attribute name="caisseInvoice" type="Boolean" default="false"/-->
+    <aura:attribute name="invoiceAmount" type="Decimal"/>
+    <aura:attribute name="comment" type="String"/>
+    <aura:attribute name="rejectComment" type="String"/>
+
+    <aura:attribute name="DescriptionComplete" type="String"/> <!-- #CH01 -->
+    <aura:attribute name="dateDepot" type="String"/> <!-- #CH01 -->
+    
+    <!--END attributes-->
+    
+    <!--START handlers-->
+    <aura:registerEvent name="selectStep" type="c:EVENT001_UpdateSteps"/>
+    
+    <aura:handler name="change" value="{!v.selectedContract}" action="{!c.selectedContractChange}"/>
+    <aura:handler name="change" value="{!v.selectedOrderForm}" action="{!c.selectedOrderFormChange}"/>
+    <aura:handler name="change" value="{!v.selectedInvoice}" action="{!c.selectedInvoiceChange}"/>
+    <!--END handlers-->
+    
+    <!--START view-->
+    <lightning:spinner alternativeText="Chargement..." aura:id="spinner" size="medium" class="{!v.spinner}"/>
+    
+    <lightning:layout verticalAlign="stretch" multipleRows="true" class="mContainer" >
+        
+        <lightning:layoutItem padding="around-small" size="8" class="mRow">
+            <c:lWC005_PDFViewer heightInRem="{!v.pdfHeightInRem}" fileId="{!v.pdfId}"></c:lWC005_PDFViewer>
+        </lightning:layoutItem>
+        <lightning:layoutItem  padding="around-small" size="4" class="mRow">
+            <div class="slds-section slds-is-open">
+                <h3 class="slds-section__title slds-theme_shade">
+                    <span class="slds-truncate slds-p-horizontal_small" title="Formulaire">
+                        {!v.invoice.Name} &nbsp;&nbsp; {!format($Label.c.LTNG012_FactureTitle, v.currentInvoiceStep, v.totalInvoices)} {!v.invoice.TECH_FactureCaisse__c ? ' ( Facture Caisse )' : ''} {! v.lastAction == 'INDEXED' ? ' ' + $Label.c.LTNG012_INDEXED : ''} {! v.lastAction == 'REFUSED' ? ' ' + $Label.c.LTNG012_REFUSED : ''}
+                    </span>
+                </h3>
+                <div aria-hidden="false" class="slds-section__content">
+                    <lightning:layout multipleRows="true">
+                        <aura:if isTrue="{!v.invoice.TECH_FactureCaisse__c}">
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <c:LTNG004_CustomLookup required="true" aura:id="lookupEntity" objectAPIName="Entity__c" label="Entité" IconName="custom:custom24" selectedRecord="{!v.selectedEntity}"
+                                                        disabled="{!not(empty(v.lastAction))}" selectedId="{! and( not(empty(v.lastAction)), not(empty(v.invoice.Entity__c)) ) ? v.invoice.Entity__c : ''}"/>
+                            </lightning:layoutItem>
+
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:input disabled="true" label="N° facture" value="{!v.invoice.SupplierInvoiceNumber__c}" required="true"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:input label="N° facture" value="{!v.numeroFacture}" required="true"/>
+                                </aura:if>
+                            </lightning:layoutItem>
+
+                            <!-- #CH01 :Start  19/07/2023 add description complete & date de depot -->
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:input disabled="true" label="Description Complète" value="{!v.invoice.DescriptionComplete__c}" required="true"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:input label="Description Complète" value="{!v.DescriptionComplete}" required="true"/>
+                                </aura:if>
+                            </lightning:layoutItem>
+
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:input disabled="true" label="Date de dépôt" type="date" value="{!v.invoice.DateDepot__c}" required="true"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:input label="Date de dépôt" type="date" value="{!v.dateDepot}" required="true"/>
+                                </aura:if>
+                            </lightning:layoutItem>
+                            <!-- #CH01 :End -->
+
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:input disabled="true" label="Date de facture" type="date" value="{!v.invoice.InvoiceDate__c}" required="true"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:input label="Date de facture" type="date" value="{!v.dateFacture}" required="true"/>
+                                </aura:if>
+                            </lightning:layoutItem>
+
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:input disabled="true" label="Montant de la facture" type="number" formatter="currency" step="0.01" value="{!v.invoice.TotalAmountTTC__c}" required="true"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:input label="Montant de la facture" type="number" formatter="currency" step="0.01" value="{!v.invoiceAmount}" required="true"/>
+                                </aura:if>
+                            </lightning:layoutItem>
+
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <c:LTNG004_CustomLookup required = "true" aura:id="lookupOrderformDisposition" objectAPIName="OrderForm__c" label="Bon de commande de mise à disposition" IconName="custom:custom26" selectedRecord="{!v.selectedOrderFormDisposition}"
+                                                        disabled="{! not(empty(v.lastAction))}" selectedId="{! and( not(empty(v.lastAction)), not(empty(v.invoice.OrderForm__c)) ) ? v.invoice.OrderForm__c : ''}"
+                                                        soqlFilter = "{! 'PurshaseOrder__r.RecordType.DeveloperName = \'DemandeMiseDisposition\' AND PurshaseOrder__r.Entity__c=\'' + v.selectedEntity.Id + '\''}"/>
+                            </lightning:layoutItem>
+
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:input disabled="true" label="N° Transaction" type="text" value="{!v.invoice.TransactionNumber__c}"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:input label="N° Transaction" type="text" value="{!v.transactionNumber}"/>
+                                </aura:if>
+                            </lightning:layoutItem>
+
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:textarea disabled="true" label="Commentaire" value="{!v.invoice.Comment__c}"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:textarea value="{!v.comment}" label="Commentaire"/>
+                                </aura:if>
+                                
+                            </lightning:layoutItem>
+                            <lightning:layoutItem alignmentBump="right" padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <div class="slds-clearfix">
+                                    <div class="slds-float_right slds-p-top_x-small">
+                                        <lightning:button disabled="{!v.currentInvoiceStep == 1}" variant="brand-outline" label="Précédent" title="Précédent" onclick="{! c.handlePrevious }" />
+                                        <lightning:button variant="brand-outline" label="Passer" title="Passer" onclick="{! c.handleSuivant }" />
+                                        <lightning:button disabled="{!not(empty(v.lastAction))}" variant="destructive" label="Refuser " title="Refuser " onclick="{! c.handleRefuse }"/>
+                                        <lightning:button disabled="{!not(empty(v.lastAction))}" iconName="{! v.currentInvoiceStep == v.totalInvoices ? '' : 'utility:right'}" iconPosition="right" variant="brand" label="Enregistrer" title="Enregistrer" onclick="{! c.handleUpdateInvoice }" />
+                                    </div>
+                                </div>
+                            </lightning:layoutItem>
+                        </aura:if>
+                        <aura:if isTrue="{! not(v.invoice.TECH_FactureCaisse__c)}">
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <c:LTNG004_CustomLookup required="true" aura:id="lookupEntity" objectAPIName="Entity__c" label="Entité" IconName="custom:custom24" selectedRecord="{!v.selectedEntity}"
+                                                        disabled="{!not(empty(v.lastAction))}" selectedId="{! and( not(empty(v.lastAction)), not(empty(v.invoice.Entity__c)) ) ? v.invoice.Entity__c : ''}"/>
+                            </lightning:layoutItem>
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <c:LTNG004_CustomLookup required="true" aura:id="lookupFournisseur" objectAPIName="Account" label="Fournisseur" IconName="standard:account" selectedRecord="{!v.selectedFournisseur}"
+                                                        soqlFilter = "{! '(Status__c = \'Validé(e)\' OR Status__c = \'Bloqué\' ) AND Id in (SELECT Supplier__c from SupplierEntity__c where Entity__c =\'' + v.selectedEntity.Id + '\') AND IsFournisseurCaisse__c = false' }"
+                                                        disabled="{!not(empty(v.lastAction))}" selectedId="{! and( not(empty(v.lastAction)), not(empty(v.invoice.Supplier__c)) ) ? v.invoice.Supplier__c : ''}"
+                                                        noDataMessage="{!$Label.c.LTNG012_NoDataForSupplierLookup}"/>
+                            </lightning:layoutItem>
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <c:LTNG004_CustomLookup aura:id="lookupContract" objectAPIName="Contract__c" label="Contrat" IconName="custom:custom18" selectedRecord="{!v.selectedContract}"
+                                                        soqlFilter = "{! 'Status__c =\'Validé(e)\' AND ( RecordType.DeveloperName = \'Contrat_avec_conditions_tarifaires\' or RecordType.DeveloperName = \'Contrat_avec_decomptes\') AND NomFournisseur__c =\'' + v.selectedFournisseur.Id + '\' AND CloseContract__c = false'}"
+                                                        disabled="{! or( not(empty(v.lastAction)), v.showSelectedContract)}" selectedId="{! and( not(empty(v.lastAction)), not(empty(v.invoice.Contract__c)) ) ? v.invoice.Contract__c : ''}"
+                                                        noDataMessage="{!$Label.c.LTNG012_NoDataForContractLookup}"/>
+                            </lightning:layoutItem>
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <c:LTNG004_CustomLookup aura:id="lookupOrderForm" objectAPIName="OrderForm__c" label="Bon de commande" IconName="custom:custom26" selectedRecord="{!v.selectedOrderForm}"
+                                                        disabled="{! or(not(empty(v.lastAction)), v.showSelectedOrderForm)}" selectedId="{! and( not(empty(v.lastAction)), not(empty(v.invoice.OrderForm__c)) ) ? v.invoice.OrderForm__c : ''}"
+                                                        soqlFilter = "{! 'Provider__c != null and Provider__c=\'' + v.selectedFournisseur.Id + '\''}"/>
+                            </lightning:layoutItem>
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <c:LTNG004_CustomLookup aura:id="lookupInvoice" objectAPIName="Invoice__c" label="Facture" IconName="standard:job_profile" selectedRecord="{!v.selectedInvoice}"
+                                                        disabled="{! or(not(empty(v.lastAction)), v.showSelectedInvoice)}" selectedId="{! and( not(empty(v.lastAction)), not(empty(v.invoice.Invoice__c)) ) ? v.invoice.Invoice__c : ''}"
+                                                        soqlFilter = "{! 'Status__c =\'Validé(e)\' AND Supplier__c != null and Supplier__c=\'' + v.selectedFournisseur.Id + '\' and RecordType.DeveloperName != \'Avoir\'' }"/>
+                            </lightning:layoutItem>
+
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:input disabled="true" label="N° facture" value="{!v.invoice.SupplierInvoiceNumber__c}" required="true"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:input label="N° facture" value="{!v.numeroFacture}" required="true"/>
+                                </aura:if>
+                            </lightning:layoutItem>
+
+                            <!-- #CH01 :Start  19/07/2023 add description complete -->
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:input disabled="true" label="Description Complète" value="{!v.invoice.DescriptionComplete__c}" required="true"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:input label="Description Complète" value="{!v.DescriptionComplete}" required="true"/>
+                                </aura:if>
+                            </lightning:layoutItem>
+
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:input disabled="true" label="Date de dépôt" value="{!v.invoice.DateDepot__c}" required="true"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:input label="Date de dépôt" type="date" value="{!v.dateDepot}" required="true"/>
+                                </aura:if>
+                            </lightning:layoutItem>
+                            <!-- #CH01 :End -->
+
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <aura:if isTrue="{!not(empty(v.lastAction))}">
+                                    <lightning:input disabled="true" label="Date de facture" type="date" value="{!v.invoice.InvoiceDate__c}" required="true"/>
+                                </aura:if>
+                                <aura:if isTrue="{!empty(v.lastAction)}">
+                                    <lightning:input label="Date de facture" type="date"  value="{!v.dateFacture}" required="true"/>
+                                </aura:if>
+                            </lightning:layoutItem>
+                            <lightning:layoutItem padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <c:LTNG004_CustomLookup aura:id="lookupContact" objectAPIName="User" label="Contact de la facture" IconName="standard:avatar" selectedRecord="{!v.selectedInvoiceContact}" 
+                                                        required="{!v.contactFactureRequired}"
+                                                        disabled="{! not(empty(v.lastAction))}" selectedId="{! and( not(empty(v.lastAction)), not(empty(v.invoice.ContactInvoice__c)) ) ? v.invoice.ContactInvoice__c : ''}"
+                                                        soqlFilter="{! 'IsActive = true and Profile.UserLicense.Name = \'Salesforce\' and Country__c = \''+v.userCountry+'\'' }"/>
+                            </lightning:layoutItem>
+                            <lightning:layoutItem alignmentBump="right" padding="horizontal-small" size="12" smallDeviceSize="12" mediumDeviceSize="12" largeDeviceSize="12">
+                                <div class="slds-clearfix">
+                                    <div class="slds-float_right slds-p-top_x-small">
+                                        <lightning:button disabled="{!v.currentInvoiceStep == 1}" variant="brand-outline" label="Précédent" title="Précédent" onclick="{! c.handlePrevious }" />
+                                        <lightning:button variant="brand-outline" label="Passer" title="Passer" onclick="{! c.handleSuivant }" />
+                                        <lightning:button disabled="{!not(empty(v.lastAction))}" variant="destructive" label="Refuser " title="Refuser " onclick="{! c.handleRefuse }"/>
+                                        <lightning:button disabled="{!not(empty(v.lastAction))}" iconName="{! v.currentInvoiceStep == v.totalInvoices ? '' : 'utility:right'}" iconPosition="right" variant="brand" label="Enregistrer" title="Suivant" onclick="{! c.handleUpdateInvoice }" />
+                                    </div>
+                                </div>
+                            </lightning:layoutItem>
+                        </aura:if>
+                    </lightning:layout>
+                </div>
+            </div>
+        </lightning:layoutItem>
+        
+    </lightning:layout>
+    
+    
+        <aura:renderIf isTrue="{!v.showConfirmationDateVerif}">
+        <section role="dialog" tabindex="-1" aria-label="Confirmation No PO" aria-describedby="modal-content-id-1" class="slds-modal slds-fade-in-open" style="height: 300px !important;">
+            <div class="slds-modal__container" style="max-width: 50% !important;">
+                <header class="slds-modal__header slds-modal__header_empty">
+                    <lightning:buttonIcon alternativeText="Close" onclick="{!c.handleCancelConfirmation}" iconName="utility:close" variant="bare" size="large" class="slds-modal__close slds-button_icon-inverse" />
+                </header>
+                <div class="slds-modal__content slds-p-around--large"  id="modal-content-id-1">
+                    <div style="text-align: center;">
+                        <lightning:icon size="large" iconName="utility:info" alternativeText="Info!" variant="success"/>
+                    
+                        <h2 class="modal-title">La différence entre la Date de dépôt et la Date de facture est supérieure à 10 jours..</h2>
+                        
+                    </div>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning:button iconPosition="right" variant="brand" label="Confirmer" title="Confirmer" onclick="{!c.handleConfirmPO}"/>
+                </footer>
+            </div>
+        </section>
+        <div class="{!'slds-backdrop ' + ((v.showConfirmationDateVerif) ? 'slds-backdrop_open' : 'slds-backdrop_close')}"></div>
+    </aura:renderIf>
+    
+    
+    <aura:renderIf isTrue="{!v.showConfirmationNoPO}">
+        <section role="dialog" tabindex="-1" aria-label="Confirmation No PO" aria-describedby="modal-content-id-1" class="slds-modal slds-fade-in-open" style="height: 300px !important;">
+            <div class="slds-modal__container" style="max-width: 50% !important;">
+                <header class="slds-modal__header slds-modal__header_empty">
+                    <lightning:buttonIcon alternativeText="Close" onclick="{!c.handleCancelConfirmation}" iconName="utility:close" variant="bare" size="large" class="slds-modal__close slds-button_icon-inverse" />
+                </header>
+                <div class="slds-modal__content slds-p-around--large"  id="modal-content-id-1">
+                    <div style="text-align: center;">
+                        <lightning:icon size="large" iconName="utility:info" alternativeText="Info!" variant="success"/>
+                    
+                        <h2 class="modal-title">{!$Label.c.LTNG012_UserDidntFillAnyLookup}</h2>
+                        <h2 style='margin-bottom:20px;'>{!$Label.c.LTNG012_ConfirmNoPOInvoice}</h2>
+                        
+                    </div>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning:button iconPosition="right" variant="brand" label="Confirmer" title="Confirmer" onclick="{!c.handleConfirmPO}"/>
+                </footer>
+            </div>
+        </section>
+        <div class="{!'slds-backdrop ' + ((v.showConfirmationNoPO) ? 'slds-backdrop_open' : 'slds-backdrop_close')}"></div>
+    </aura:renderIf>
+    
+    <aura:renderIf isTrue="{!v.showRejectConfirmation}">
+        <section role="dialog" tabindex="-1" aria-label="Confirmation No PO" aria-describedby="modal-content-id-1" class="slds-modal slds-fade-in-open" style="height: 300px !important;">
+            <div class="slds-modal__container" style="max-width: 50% !important;">
+                
+                <div class="slds-modal__content slds-p-around_medium" id="modal-content-id-1">
+                    <div class="modal-header slds-modal__Header slds-size_1-of-1">
+                        Êtes-vous sûr de bien vouloir rejeter cette facture?
+                    </div>
+                    <br/>
+                    <lightning:textarea value="{!v.rejectComment}" label="Commentaire" placeholder="ce commentaire est obligatoire..."/>
+                </div>
+                
+                <footer class="slds-modal__footer">
+                    <lightning:button variant="Neutral" label="Annuler" title="Annuler" onclick="{!c.handleCancelConfirmation}"/>
+                    <lightning:button variant="destructive" disabled="{! empty(v.rejectComment) }" label="Confirmer" title="Confirmer" onclick="{!c.handleConfirmReject}"/>
+                </footer>
+            </div>
+        </section>
+        <div class="{!'slds-backdrop ' + ((v.showRejectConfirmation) ? 'slds-backdrop_open' : 'slds-backdrop_close')}"></div>
+    </aura:renderIf>
+    
+    <!--END view-->
+    
+    
+    
+</aura:component>

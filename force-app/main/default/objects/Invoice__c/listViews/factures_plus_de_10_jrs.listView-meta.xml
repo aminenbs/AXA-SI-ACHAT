@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>factures_plus_de_10_jrs</fullName>
+    <columns>NAME</columns>
+    <columns>Supplier__c</columns>
+    <columns>InvoiceDate__c</columns>
+    <columns>DateDepot__c</columns>
+    <columns>Status__c</columns>
+    <columns>CREATED_DATE</columns>
+    <columns>LAST_UPDATE</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>delay_days__c</field>
+        <operation>greaterThan</operation>
+        <value>10</value>
+    </filters>
+    <filters>
+        <field>TECH_StatusSentToSAP__c</field>
+        <operation>notEqual</operation>
+        <value>Envoyer à SAP</value>
+    </filters>
+    <label>Factures en retard</label>
+</ListView>
